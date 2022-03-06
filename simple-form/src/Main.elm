@@ -3,114 +3,130 @@ module Main exposing (..)
 import Browser
 import Html exposing (Html)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput)
-import Debug
+import Html.Events exposing (onClick)
+import Person as Person
+
+
 
 -- MAIN
 
+
 main : Program () Model Msg
-main = Browser.element 
-    { init = init
-    , update = update
-    , view = view
-    , subscriptions = subscriptions
-    }
+main =
+    Browser.element
+        { init = init
+        , update = update
+        , view = view
+        , subscriptions = subscriptions
+        }
+
 
 
 -- MODEL
 
-type alias Model = FormInput
+
+type alias Model =
+    { person : Maybe Person.Person
+    , personForm : Maybe Person.FormModel
+    }
+
 
 init : () -> ( Model, Cmd Msg )
-init _ = ( formInit, Cmd.none )
+init _ =
+    ( { person = Maybe.Nothing
+      , personForm = Maybe.Nothing
+      }
+    , Cmd.none
+    )
+
+
 
 -- UPDATE
-type Msg = FormChanged FormMsg
+
+
+type Msg
+    = ChangedPersonForm Person.FormMsg
+    | ClickedCreatePerson
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model = 
+update msg model =
     case msg of
-        FormChanged formMsg ->
-            (formUpdate formMsg model, Cmd.none )
+        ChangedPersonForm formMsg ->
+            case model.personForm of
+                Just form ->
+                    let
+                        updated =
+                            Person.formUpdate form formMsg
+                    in
+                    case updated.status of
+                        Person.Editing ->
+                            ( { model | personForm = Just updated }
+                            , Cmd.none
+                            )
 
+                        Person.Submitting person ->
+                            ( { model
+                                | person = Just person
+                                , personForm = Nothing
+                              }
+                            , Cmd.none
+                            )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        ClickedCreatePerson ->
+            ( { model | personForm = Just Person.newPersonForm }
+            , Cmd.none
+            )
 
 
 
 -- SUBSCRIPTIONS
+
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.none
 
 
+
 -- VIEW
+
 
 view : Model -> Html Msg
 view model =
-    Html.div []
-        [ Html.map FormChanged (formView model) ]
-
-
--- FORM
-type Parsed a
-    = Valid a
-    | Invalid (String, String)
-
--- -- MODEL
-type alias FormInput =
-    { name : String 
-    , age : String 
-    }
-
-formInit : FormInput
-formInit = FormInput "" ""
-
-parseName : String -> Parsed String
-parseName rawName =
-    if String.isEmpty rawName then 
-        Invalid ("Name musst not be empty.", rawName)
-    else 
-        Valid rawName
-
-parseAge : String -> Parsed Int
-parseAge rawAge =
-    case (String.toInt rawAge) of
-        Just age ->
-            Valid age
-        
-        Nothing ->
-            Invalid ("Invalid Age.", rawAge)
-
--- -- UPDATE
-
-type FormMsg
-    = NameInputChanged String
-    | AgeInputChanged String
-
-formUpdate : FormMsg -> FormInput -> FormInput
-formUpdate msg input =
-    case msg of
-        NameInputChanged name ->
-            { input | name = name }
-
-        AgeInputChanged age ->
-            { input | age = age}
-
--- -- VIEW
-
-inputView : String -> String -> (String -> msg) -> String -> Html msg
-inputView t p toMsg v =
-    Html.input [ type_ t, value v, placeholder p, onInput toMsg ] [ ]
-
-formView : FormInput -> Html FormMsg
-formView form =
     let
-        _ = Debug.log "Name: " form.name
-        _ = Debug.log "Age: " form.age
-
-
+        _ = Debug.log "model" model
     in
-    Html.form [] 
-        [ inputView "text" "Name" NameInputChanged form.name
-        , inputView "number" "Age" AgeInputChanged form.age
+    Html.div [] <|
+        ([]
+            |> (\elem -> viewPersonForm model.personForm :: elem)
+            |> (\elem ->
+                    case model.person of
+                        Just person ->
+                            viewPerson person :: elem
+
+                        Nothing ->
+                            elem
+               )
+        )
+
+
+viewPerson : Person.Person -> Html Msg
+viewPerson person =
+    Html.div []
+        [ Html.text ("Name: " ++ (Person.name person))
+        , Html.text ("Age: " ++ (Person.ageAsString person))
         ]
+
+
+viewPersonForm : Maybe Person.FormModel -> Html.Html Msg
+viewPersonForm formModel =
+    case formModel of
+        Just form ->
+            Html.map ChangedPersonForm (Person.viewForm form)
+
+        Nothing ->
+            Html.button [ onClick ClickedCreatePerson ] [ Html.text "Create Person" ]
