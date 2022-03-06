@@ -1,0 +1,2 @@
+- [ ] Move Person back into page, since ui specific logic should not be placed inside the `Person` module
+- [ ] Create a `createPerson : PersonInput -> Result String Person` function inside `Person` module
